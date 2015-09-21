@@ -505,8 +505,8 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     for (int i = 0; i < iterations; i++) {
         //splitLongEdges(high2);
         //collapseShortEdges(low2, high2);
-        //equalizeValences();
-        //tangentialRelaxation();
+        equalizeValences();
+        tangentialRelaxation();
         //projectToSurface();
     }
 }

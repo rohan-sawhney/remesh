@@ -86,7 +86,6 @@ void keyboard(unsigned char key, int x0, int y0)
         case 27 :
             exit(0);
         case ' ':
-            std::cout << "remeshed" << std::endl;
             mesh.remesh(avgEdgeLength, 1);
             break;
         case 'a':
