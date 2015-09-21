@@ -49,7 +49,7 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
     HalfEdgeIter he = e.he;
     HalfEdgeIter flip = he->flip;
     
-    VertexIter v2 = he->next->vertex;
+    VertexIter v2 = flip->vertex;
     
     FaceIter f0 = he->face;
     FaceIter f3 = flip->face;
@@ -70,9 +70,9 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
     flip1->flip = he1;
     
     // set halfedge vertex
+    flip->vertex = v;
     he1->vertex = v;
     flip1->vertex = v2;
-    flip->vertex = v;
  
     // set vertex halfedge
     v->he = he1;
@@ -119,10 +119,11 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         // set edge halfedge
         e2->he = he2;
         
-        // set halfedge edge
+        // set halfedge face
         he2->face = f0;
-        flip2->face = f1;
+        he1->face = f1;
         heNext->face = f1;
+        flip2->face = f1;
         
         // set face halfedge
         f0->he = he2;
@@ -132,10 +133,17 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         // set halfedge next
         he1->next = he->next;
         he->next = he1;
+        he1->onBoundary = true;
         
         // set vertex and edge halfedge
         v->he = flip;
-        e1->he = flip;
+        e1->he = flip1;
+        
+        // set halfedge face
+        FaceIter newFace = faces.insert(faces.end(), Face());
+        newFace->index = (int)faces.size()-1;
+        he1->face = newFace;
+        newFace->he = he1;
     }
     
     if (!flip->onBoundary) {
@@ -172,12 +180,13 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         // set edge halfedge
         e3->he = flip3;
         
-        // set halfedge edge
+        // set halfedge face
+        flip1->face = f2;
         flip3->face = f2;
         flipNextNext->face = f2;
         he3->face = f3;
         
-        // set face halfedges
+        // set face halfedge
         f2->he = flip3;
         f3->he = he3;
         
@@ -195,6 +204,14 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
             
             h = h->flip->next;
         } while (h != v2->he);
+        
+        flip1->onBoundary = true;
+        
+        // set halfedge face
+        FaceIter newFace = faces.insert(faces.end(), Face());
+        newFace->index = (int)faces.size()-1;
+        flip1->face = newFace;
+        newFace->he = flip1;
     }
 }
 
@@ -262,6 +279,7 @@ void Mesh::collapseEdge(const int eIdx)
 
 void Mesh::resetLists()
 {
+    /*
     // vertices
     std::vector<Vertex> newVertexList;
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
@@ -303,6 +321,7 @@ void Mesh::resetLists()
         }
     }
     faces = newFaceList;
+     */
 }
 
 void Mesh::flipEdge(const int eIdx)
@@ -353,18 +372,16 @@ void Mesh::flipEdge(const int eIdx)
 
 void Mesh::splitLongEdges(const double high)
 {
-    double high2 = high*high;
-    
     int edgeCount = (int)edges.size();
     for (int i = 0; i < edgeCount; i++) {
         Edge e = edges[i];
         
-        if (e.lengthSquared() > high2) {
+        if (e.lengthSquared() > high) {
             
             Eigen::Vector3d v1 = e.he->vertex->position;
             Eigen::Vector3d v2 = e.he->flip->vertex->position;
-            Eigen::Vector3d mid = v1 + 0.5 * (v2 - v1);
-        
+            Eigen::Vector3d mid = v1 + 0.5 * (v2-v1);
+            
             splitEdge(e.index, mid);
         }
     }
@@ -372,12 +389,9 @@ void Mesh::splitLongEdges(const double high)
 
 void Mesh::collapseShortEdges(const double low, const double high)
 {
-    double low2 = low*low;
-    double high2 = high*high;
-
     for (EdgeCIter e = edges.begin(); e != edges.end(); e++) {
         
-        if (!e->remove && e->lengthSquared() < low2) {
+        if (!e->remove && e->lengthSquared() < low) {
             
             bool collapse = true;
             VertexCIter v1 = e->he->vertex;
@@ -387,7 +401,7 @@ void Mesh::collapseShortEdges(const double low, const double high)
             HalfEdgeCIter he = v1->he;
             do {
                 double d = (v2->position - he->flip->vertex->position).squaredNorm();
-                if (he->onBoundary || d > high2) {
+                if (he->onBoundary || d > high) {
                     collapse = false;
                     break;
                 }
@@ -479,6 +493,8 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     // low and high edge lengths
     const double low  = (4.0 / 5.0) * edgeLength;
     const double high = (4.0 / 3.0) * edgeLength;
+    double low2 = low*low;
+    double high2 = high*high;
     
     // build bvh
     oldVertices = vertices;
@@ -486,11 +502,11 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     
     // run algorithm
     for (int i = 0; i < iterations; i++) {
-        splitLongEdges(high);
-        collapseShortEdges(low, high);
-        equalizeValences();
-        tangentialRelaxation();
-        projectToSurface();
+        //splitLongEdges(high2);
+        collapseShortEdges(low2, high2);
+        //equalizeValences();
+        //tangentialRelaxation();
+        //projectToSurface();
     }
 }
 

@@ -3,8 +3,6 @@
 #include <stack>
 
 Bvh::Bvh(const int leafSize0):
-nodeCount(0),
-leafCount(0),
 leafSize(leafSize0)
 {
     
@@ -21,6 +19,9 @@ struct NodeEntry {
 void Bvh::build(Mesh *meshPtr0)
 {
     meshPtr = meshPtr0;
+    nodeCount = 0;
+    leafCount = 0;
+    flatTree.clear();
     
     std::stack<NodeEntry> stack;
     const int faceCount = (int)meshPtr->faces.size();

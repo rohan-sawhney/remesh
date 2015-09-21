@@ -174,7 +174,7 @@ bool MeshIO::buildMesh(const MeshData& data, Mesh& mesh)
         vertex->he = isolated.begin();
         indexToVertex[i] = vertex;
     }
-    
+ 
     // insert faces into mesh
     int faceIndex = 0;
     bool degenerateFaces = false;

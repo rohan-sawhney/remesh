@@ -42,13 +42,13 @@ void init()
 
 void draw()
 {
-    glColor4f(1.0, 1.0, 1.0, 0.5);
+    glColor4f(0.0, 0.0, 1.0, 0.5);
     
     glBegin(GL_LINES);
     for (EdgeCIter e = mesh.edges.begin(); e != mesh.edges.end(); e ++) {
         Eigen::Vector3d a = e->he->vertex->position;
         Eigen::Vector3d b = e->he->flip->vertex->position;
-            
+        
         glVertex3d(a.x(), a.y(), a.z());
         glVertex3d(b.x(), b.y(), b.z());
     }
@@ -86,7 +86,8 @@ void keyboard(unsigned char key, int x0, int y0)
         case 27 :
             exit(0);
         case ' ':
-            mesh.remesh(avgEdgeLength, 5);
+            std::cout << "remeshed" << std::endl;
+            mesh.remesh(avgEdgeLength, 1);
             break;
         case 'a':
             x -= 0.03;
