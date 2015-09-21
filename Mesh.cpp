@@ -425,7 +425,6 @@ void Mesh::equalizeValences()
         
         if (!(e->he->onBoundary || e->he->flip->onBoundary)) {
             // compute pre and post deviation and decide whether to flip
-            
             VertexCIter v1 = e->he->vertex;
             VertexCIter v2 = e->he->flip->vertex;
             VertexCIter v3 = e->he->next->next->vertex;
@@ -437,13 +436,15 @@ void Mesh::equalizeValences()
                                      std::abs(v4->valence() - v4->targetValence());
             
             flipEdge(e->index);
-            
+
             const int postDeviation = std::abs(v1->valence() - v1->targetValence()) +
                                       std::abs(v2->valence() - v2->targetValence()) +
                                       std::abs(v3->valence() - v3->targetValence()) +
                                       std::abs(v4->valence() - v4->targetValence());
-            
-            if (preDeviation <= postDeviation) flipEdge(e->index);
+
+            if (preDeviation <= postDeviation) {
+                flipEdge(e->index);
+            }
         }
     }
 }
@@ -503,7 +504,7 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     // run algorithm
     for (int i = 0; i < iterations; i++) {
         //splitLongEdges(high2);
-        collapseShortEdges(low2, high2);
+        //collapseShortEdges(low2, high2);
         //equalizeValences();
         //tangentialRelaxation();
         //projectToSurface();
