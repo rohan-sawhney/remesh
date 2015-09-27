@@ -28,7 +28,6 @@ public:
     // member variables
     std::vector<HalfEdge> halfEdges;
     std::vector<Vertex> vertices;
-    std::vector<Vertex> oldVertices;
     std::vector<Edge> edges;
     std::vector<Face> faces;
     std::vector<HalfEdgeIter> boundaries;
@@ -38,16 +37,19 @@ private:
     void normalize();
     
     // splits edge and creates a vertex and two new faces
-    void splitEdge(const int eIdx, const Eigen::Vector3d& position);
+    void splitEdge(EdgeIter& e, const Eigen::Vector3d& position);
     
     // collapses edge and removes adjacent faces
-    void collapseEdge(const int eIdx);
+    void collapseEdge(EdgeIter& e);
     
     // removes edges marked for deletion
     void resetLists();
     
+    // checks valid flip
+    bool validFlip(EdgeIter& e);
+    
     // flips edge
-    void flipEdge(const int eIdx);
+    void flipEdge(EdgeIter& e);
     
     // splits longer edges
     void splitLongEdges(const double high);
@@ -62,7 +64,7 @@ private:
     void tangentialRelaxation();
     
     // maps vertex back to surface
-    void projectToSurface();
+    void projectToSurface(const Mesh& mesh);
     
     Bvh bvh;
 };

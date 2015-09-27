@@ -19,12 +19,12 @@ public:
     Eigen::Vector3d normal() const;
     
     // computes the bounding box of the face
-    BoundingBox boundingBox(const Mesh& mesh) const;
+    BoundingBox boundingBox() const;
     
     // computes the centroid of the face
-    Eigen::Vector3d centroid(const Mesh& mesh) const;
+    Eigen::Vector3d centroid() const;
     
-    double closestPoint(const Mesh& mesh, const Eigen::Vector3d& p, Eigen::Vector3d& c) const;
+    double closestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& c) const;
     
     // id between 0 and |F|-1
     int index;

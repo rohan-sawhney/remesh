@@ -13,11 +13,13 @@ bool Vertex::onBoundary() const
 {
     HalfEdgeCIter h = he;
     do {
-        if (h->onBoundary) return true;
+        if (h->onBoundary) {
+            return true;
+        }
         h = h->flip->next;
         
     } while (h != he);
-    
+
     return false;
 }
 
@@ -31,12 +33,11 @@ int Vertex::targetValence() const
 int Vertex::valence() const
 {
     int v = 0;
-    
     HalfEdgeCIter h = he;
     do {
         v ++;
         h = h->flip->next;
-        
+
     } while (h != he);
 
     return v;
@@ -45,20 +46,25 @@ int Vertex::valence() const
 Eigen::Vector3d Vertex::normal() const
 {
     Eigen::Vector3d normal;
+    Eigen::Vector3d n;
     normal.setZero();
+    
+    if (isIsolated()) {
+        return normal;
+    }
     
     double angle;
     
     HalfEdgeCIter h = he;
-    do {
+    do {        
         Eigen::Vector3d e1 = h->flip->vertex->position - position;
         Eigen::Vector3d e2 = h->flip->next->flip->vertex->position - position;
         
-        e1.normalize();
-        e2.normalize();
-        
         angle = acos(e1.dot(e2) / sqrt(e1.dot(e1) * e2.dot(e2)));
-        normal += angle * h->face->normal();
+        n = h->face->normal();
+        n.normalize();
+        
+        normal += angle * n;
         
         h = h->flip->next;
         

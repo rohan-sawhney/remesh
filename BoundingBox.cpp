@@ -62,10 +62,11 @@ int BoundingBox::maxDimension() const
 
 bool BoundingBox::intersect(const Eigen::Vector3d& p, double& dist) const
 {
-    if (min.x() <= p.x() && p.x() <= max.x() &&
-        min.y() <= p.y() && p.y() <= max.y()) {
+    if ((min.x() <= p.x() && p.x() <= max.x()) &&
+        (min.y() <= p.y() && p.y() <= max.y()) &&
+        (min.z() <= p.z() && p.z() <= max.z())) {
         
-        dist = ((min + max) / 2 - p).norm();
+        dist = ((min + extent*0.5) - p).squaredNorm();
         return true;
     }
     

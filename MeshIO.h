@@ -14,12 +14,12 @@ public:
     // writes data in obj format
     static void write(std::ofstream& out, const Mesh& mesh);
     
+    // sets index for vertices
+    static  void indexElements(Mesh& mesh);
+    
 private:
     // reserves spave for mesh vertices, uvs, normals and faces
     static void preallocateMeshElements(const MeshData& data, Mesh& mesh);
-    
-    // sets index for vertices
-    static  void indexElements(Mesh& mesh);
     
     // checks if any vertex is not contained in a face
     static void checkIsolatedVertices(const Mesh& mesh);

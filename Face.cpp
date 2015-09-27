@@ -28,12 +28,12 @@ Eigen::Vector3d Face::normal() const
     return v1.cross(v2);
 }
 
-BoundingBox Face::boundingBox(const Mesh& mesh) const
+BoundingBox Face::boundingBox() const
 {
     // assumes face is a triangle
-    Eigen::Vector3d p1 = mesh.vertices[he->vertex->index].position;
-    Eigen::Vector3d p2 = mesh.vertices[he->next->vertex->index].position;
-    Eigen::Vector3d p3 = mesh.vertices[he->next->next->vertex->index].position;
+    Eigen::Vector3d p1 = he->vertex->position;
+    Eigen::Vector3d p2 = he->next->vertex->position;
+    Eigen::Vector3d p3 = he->next->next->vertex->position;
     
     Eigen::Vector3d min = p1;
     Eigen::Vector3d max = p1;
@@ -59,20 +59,20 @@ BoundingBox Face::boundingBox(const Mesh& mesh) const
     return BoundingBox(min, max);
 }
 
-Eigen::Vector3d Face::centroid(const Mesh& mesh) const
+Eigen::Vector3d Face::centroid() const
 {
     // assumes face is a triangle
-    Eigen::Vector3d centroid = (mesh.vertices[he->vertex->index].position +
-                                mesh.vertices[he->next->vertex->index].position +
-                                mesh.vertices[he->next->next->vertex->index].position) / 3;
+    Eigen::Vector3d centroid = (he->vertex->position +
+                                he->next->vertex->position +
+                                he->next->next->vertex->position) / 3.0;
     return centroid;
 }
 
-double Face::closestPoint(const Mesh& mesh, const Eigen::Vector3d& p, Eigen::Vector3d& c) const
+double Face::closestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& c) const
 {
-    Eigen::Vector3d p1 = mesh.oldVertices[he->vertex->index].position;
-    Eigen::Vector3d p2 = mesh.oldVertices[he->next->vertex->index].position;
-    Eigen::Vector3d p3 = mesh.oldVertices[he->next->next->vertex->index].position;
+    Eigen::Vector3d p1 = he->vertex->position;
+    Eigen::Vector3d p2 = he->next->vertex->position;
+    Eigen::Vector3d p3 = he->next->next->vertex->position;
     
     Eigen::Vector3d e1 = p2 - p1;
     Eigen::Vector3d e2 = p3 - p1;
@@ -106,7 +106,7 @@ double Face::closestPoint(const Mesh& mesh, const Eigen::Vector3d& p, Eigen::Vec
     Eigen::Vector3d v3 = p - p3;
     double d5 = e1.dot(v3), d6 = e2.dot(v3);
     if (d6 >= 0 && d5 <= d6) {
-        c = p2;
+        c = p3;
         return (p-c).squaredNorm();
     }
     

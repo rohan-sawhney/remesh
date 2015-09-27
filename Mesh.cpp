@@ -42,11 +42,9 @@ bool Mesh::write(const std::string& fileName) const
     return false;
 }
 
-void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
+void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
 {
-    Edge e = edges[eIdx];
-    
-    HalfEdgeIter he = e.he;
+    HalfEdgeIter he = e->he;
     HalfEdgeIter flip = he->flip;
     
     VertexIter v2 = flip->vertex;
@@ -65,7 +63,11 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
     
     // insert new halfedge
     HalfEdgeIter he1 = halfEdges.insert(halfEdges.end(), HalfEdge());
+    he1->index = (int)halfEdges.size()-1;
     HalfEdgeIter flip1 = halfEdges.insert(halfEdges.end(), HalfEdge());
+    flip1->index = (int)halfEdges.size()-1;
+    
+    // set flip
     he1->flip = flip1;
     flip1->flip = he1;
     
@@ -76,7 +78,7 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
  
     // set vertex halfedge
     v->he = he1;
-    if (v2->he == flip) v2->he = flip1;
+    v2->he = flip1;
     
     // set halfedge edge
     he1->edge = e1;
@@ -93,12 +95,16 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         e2->index = (int)edges.size()-1;
         
         HalfEdgeIter he2 = halfEdges.insert(halfEdges.end(), HalfEdge());
+        he2->index = (int)halfEdges.size()-1;
         HalfEdgeIter flip2 = halfEdges.insert(halfEdges.end(), HalfEdge());
-        he2->flip = flip2;
-        flip2->flip = he2;
+        flip2->index = (int)halfEdges.size()-1;
         
         FaceIter f1 = faces.insert(faces.end(), Face());
         f1->index = (int)faces.size()-1;
+        
+        // set flip
+        he2->flip = flip2;
+        flip2->flip = he2;
         
         // set halfedge next
         he->next = he2;
@@ -154,12 +160,16 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         e3->index = (int)edges.size()-1;
         
         HalfEdgeIter he3 = halfEdges.insert(halfEdges.end(), HalfEdge());
+        he3->index = (int)halfEdges.size()-1;
         HalfEdgeIter flip3 = halfEdges.insert(halfEdges.end(), HalfEdge());
-        he3->flip = flip3;
-        flip3->flip = he3;
-        
+        flip3->index = (int)halfEdges.size()-1;
+    
         FaceIter f2 = faces.insert(faces.end(), Face());
         f2->index = (int)faces.size()-1;
+        
+        // set flip
+        he3->flip = flip3;
+        flip3->flip = he3;
         
         // set halfedge next
         flipNext->next = he3;
@@ -195,7 +205,7 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
         flip1->next = flip;
         
         // set flip1 prev next to flip1
-        HalfEdgeCIter h = v2->he;
+        HalfEdgeCIter h = flip1;
         do {
             if (h->flip->onBoundary) {
                 h->flip->next = flip1;
@@ -203,9 +213,10 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
             }
             
             h = h->flip->next;
-        } while (h != v2->he);
+        } while (h != flip1);
         
         flip1->onBoundary = true;
+        v2->he = he1->next;
         
         // set halfedge face
         FaceIter newFace = faces.insert(faces.end(), Face());
@@ -215,11 +226,9 @@ void Mesh::splitEdge(const int eIdx, const Eigen::Vector3d& position)
     }
 }
 
-void Mesh::collapseEdge(const int eIdx)
+void Mesh::collapseEdge(EdgeIter& e)
 {
-    Edge e1 = edges[eIdx];
-    
-    HalfEdgeIter he = e1.he;
+    HalfEdgeIter he = e->he;
     HalfEdgeIter heNext = he->next;
     HalfEdgeIter heNextNext = heNext->next;
     
@@ -228,7 +237,9 @@ void Mesh::collapseEdge(const int eIdx)
     HalfEdgeIter flipNextNext = flipNext->next;
     
     VertexIter v1 = he->vertex;
-    VertexIter v2 = heNext->vertex;
+    VertexIter v2 = flip->vertex;
+    VertexIter v3 = heNextNext->vertex;
+    VertexIter v4 = flipNextNext->vertex;
     
     EdgeIter e2 = heNextNext->edge;
     EdgeIter e3 = flipNextNext->edge;
@@ -241,8 +252,13 @@ void Mesh::collapseEdge(const int eIdx)
     do {
         h->vertex = v1;
         h = h->flip->next;
-        
+    
     } while (h != v2->he);
+    
+    // set vertex halfEdge
+    v1->he = heNext;
+    v3->he = heNextNext->flip->next;
+    v4->he = flipNextNext->flip->next;
 
     // set next halfEdge
     heNext->next = heNextNext->flip->next;
@@ -259,12 +275,9 @@ void Mesh::collapseEdge(const int eIdx)
     if (heNextNext->flip->face->he == heNextNext->flip) heNextNext->flip->face->he = heNext;
     if (flipNextNext->flip->face->he == flipNextNext->flip) flipNextNext->flip->face->he = flipNext;
     
-    // set vertex halfEdge
-    v1->he = heNext;
-    
     // mark for deletion
     v2->remove = true;
-    e1.remove = true;
+    e->remove = true;
     e2->remove = true;
     e3->remove = true;
     he->remove = true;
@@ -277,58 +290,102 @@ void Mesh::collapseEdge(const int eIdx)
     fFlip->remove = true;
 }
 
-void Mesh::resetLists()
+template <typename T>
+void swapMarkedRemove(std::vector<T>& vec, int& size)
 {
-    /*
-    // vertices
-    std::vector<Vertex> newVertexList;
-    for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
-        if (!v->remove) {
-            VertexIter nv = newVertexList.insert(newVertexList.end(), Vertex());
+    int n = (int)vec.size();
+
+    if (n > 0) {
+        int start = 0, end = n-1;
+        
+        while (true) {
+            // find first removed and valid T
+            while (!vec[start].remove && start < end) start++;
+            while (vec[end].remove && start < end) end--;
             
-            // update the vertex and its associated halfedge
-            nv->index = (int)newVertexList.size()-1;
-            nv->he = v->he;
-            v->he->vertex = nv;
-        }
-    }
-    vertices = newVertexList;
-    
-    // edges
-    std::vector<Edge> newEdgeList;
-    for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
-        if (!e->remove) {
-            EdgeIter ne = newEdgeList.insert(newEdgeList.end(), Edge());
+            if (start >= end) break;
             
-            // update the edge and its associated halfedge
-            ne->index = (int)newEdgeList.size()-1;
-            ne->he = e->he;
-            e->he->edge = ne;
+            // swap
+            std::swap(vec[start], vec[end]);
         }
+        
+        size = vec[start].remove ? start : start+1;
     }
-    edges = newEdgeList;
-    
-    // faces
-    std::vector<Face> newFaceList;
-    for (FaceIter f = faces.begin(); f != faces.end(); f++) {
-        if (!f->remove) {
-            FaceIter nf = newFaceList.insert(newFaceList.end(), Face());
-            
-            // update the edge and its associated halfedge
-            nf->index = (int)newFaceList.size()-1;
-            nf->he = f->he;
-            f->he->face = nf;
-        }
-    }
-    faces = newFaceList;
-     */
 }
 
-void Mesh::flipEdge(const int eIdx)
+void Mesh::resetLists()
 {
-    Edge e = edges[eIdx];
+    int nV, nE, nF, nHE;
     
-    HalfEdgeIter he = e.he;
+    swapMarkedRemove(vertices, nV);
+    swapMarkedRemove(edges, nE);
+    swapMarkedRemove(halfEdges, nHE);
+    swapMarkedRemove(faces, nF);
+    
+    // reassign iterators
+    for (int i = 0; i < nV; i++) {
+        if (!vertices[i].isIsolated()) {
+            vertices[i].he = halfEdges.begin() + vertices[i].he->index;
+        }
+    }
+    
+    for (int i = 0; i < nE; i++) {
+        edges[i].he = halfEdges.begin() + edges[i].he->index;
+    }
+    
+    for (int i = 0; i < nHE; i++) {
+        halfEdges[i].vertex = vertices.begin() + halfEdges[i].vertex->index;
+        halfEdges[i].edge = edges.begin() + halfEdges[i].edge->index;
+        halfEdges[i].flip = halfEdges.begin() + halfEdges[i].flip->index;
+        halfEdges[i].next = halfEdges.begin() + halfEdges[i].next->index;
+        halfEdges[i].face = faces.begin() + halfEdges[i].face->index;
+    }
+    
+    for (int i = 0; i < nF; i++) {
+        faces[i].he = halfEdges.begin() + faces[i].he->index;
+    }
+    
+    // erase
+    vertices.resize(nV);
+    edges.resize(nE);
+    halfEdges.resize(nHE);
+    faces.resize(nF);
+    
+    // reindex
+    MeshIO::indexElements(*this);
+}
+
+bool Mesh::validFlip(EdgeIter& e)
+{
+    HalfEdgeCIter he = e->he;
+    HalfEdgeCIter flip = he->flip;
+    
+    if (he->onBoundary || flip->onBoundary) {
+        return false;
+    }
+    
+    VertexIter v1 = he->next->next->vertex;
+    VertexIter v2 = flip->next->next->vertex;
+    
+    // check if v1 and v2 share an edge
+    HalfEdgeCIter h1 = v1->he;
+    do {
+        HalfEdgeCIter h2 = v2->he;
+        do {
+            if (h1 == h2->flip) return false;
+        
+            h2 = h2->flip->next;
+        } while (h2 != v2->he);
+        
+        h1 = h1->flip->next;
+    } while (h1 != v1->he);
+    
+    return true;
+}
+
+void Mesh::flipEdge(EdgeIter& e)
+{
+    HalfEdgeIter he = e->he;
     HalfEdgeIter heNext = he->next;
     HalfEdgeIter heNextNext = heNext->next;
     
@@ -371,25 +428,22 @@ void Mesh::flipEdge(const int eIdx)
 }
 
 void Mesh::splitLongEdges(const double high)
-{
-    int edgeCount = (int)edges.size();
-    for (int i = 0; i < edgeCount; i++) {
-        Edge e = edges[i];
-        
-        if (e.lengthSquared() > high) {
+{    
+    EdgeIter eEnd = edges.end();
+    for (EdgeIter e = edges.begin(); e != eEnd; e++) {
+        if (e->lengthSquared() > high) {
             
-            Eigen::Vector3d v1 = e.he->vertex->position;
-            Eigen::Vector3d v2 = e.he->flip->vertex->position;
-            Eigen::Vector3d mid = v1 + 0.5 * (v2-v1);
+            Eigen::Vector3d v1 = e->he->vertex->position;
+            Eigen::Vector3d v2 = e->he->flip->vertex->position;
             
-            splitEdge(e.index, mid);
+            splitEdge(e, v1 + (v2-v1) * 0.5);
         }
     }
 }
 
 void Mesh::collapseShortEdges(const double low, const double high)
 {
-    for (EdgeCIter e = edges.begin(); e != edges.end(); e++) {
+    for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
         
         if (!e->remove && e->lengthSquared() < low) {
             
@@ -410,8 +464,9 @@ void Mesh::collapseShortEdges(const double low, const double high)
             
             } while (he != v1->he);
             
-            if (collapse) {
-                collapseEdge(e->index);
+            if (collapse && !e->he->next->next->flip->onBoundary &&
+                            !e->he->flip->next->next->flip->onBoundary) {
+                collapseEdge(e);
             }
         }
     }
@@ -421,9 +476,9 @@ void Mesh::collapseShortEdges(const double low, const double high)
 
 void Mesh::equalizeValences()
 {
-    for (EdgeCIter e = edges.begin(); e != edges.end(); e++) {
+    for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
         
-        if (!(e->he->onBoundary || e->he->flip->onBoundary)) {
+        if (validFlip(e)) {
             // compute pre and post deviation and decide whether to flip
             VertexCIter v1 = e->he->vertex;
             VertexCIter v2 = e->he->flip->vertex;
@@ -435,7 +490,7 @@ void Mesh::equalizeValences()
                                      std::abs(v3->valence() - v3->targetValence()) +
                                      std::abs(v4->valence() - v4->targetValence());
             
-            flipEdge(e->index);
+            flipEdge(e);
 
             const int postDeviation = std::abs(v1->valence() - v1->targetValence()) +
                                       std::abs(v2->valence() - v2->targetValence()) +
@@ -443,7 +498,7 @@ void Mesh::equalizeValences()
                                       std::abs(v4->valence() - v4->targetValence());
 
             if (preDeviation <= postDeviation) {
-                flipEdge(e->index);
+                flipEdge(e);
             }
         }
     }
@@ -478,12 +533,27 @@ void Mesh::tangentialRelaxation()
     }
 }
 
-void Mesh::projectToSurface()
+void Mesh::projectToSurface(const Mesh& mesh)
 {
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
         if (!v->onBoundary()) {
-            Eigen::Vector3d nearestPoint;
-            bvh.nearestPoint(v->position, nearestPoint);
+            
+            Eigen::Vector3d nearestPoint = v->position;
+            
+            double minD = INFINITY;
+            for (FaceCIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
+                
+                if (!f->isBoundary()) {
+                    Eigen::Vector3d closestPoint;
+                    double d = f->closestPoint(v->position, closestPoint);
+                    if (d < minD) {
+                        minD = d;
+                        nearestPoint = closestPoint;
+                    }
+                }
+            }
+            
+            //bvh.nearestPoint(v->position, nearestPoint);
             v->position = nearestPoint;
         }
     }
@@ -498,16 +568,20 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     double high2 = high*high;
     
     // build bvh
-    oldVertices = vertices;
-    bvh.build(this);
+    //Mesh mesh(*this);
+    //bvh.build(mesh);
     
     // run algorithm
     for (int i = 0; i < iterations; i++) {
-        //splitLongEdges(high2);
-        //collapseShortEdges(low2, high2);
+        splitLongEdges(high2);
+        std::cout << "1" << std::endl;
+        collapseShortEdges(low2, high2);
+        std::cout << "2" << std::endl;
         equalizeValences();
+        std::cout << "3" << std::endl;
         tangentialRelaxation();
-        //projectToSurface();
+        std::cout << "4" << std::endl;
+        //projectToSurface(mesh);
     }
 }
 

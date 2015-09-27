@@ -89,10 +89,11 @@ void MeshIO::preallocateMeshElements(const MeshData& data, Mesh& mesh)
     mesh.faces.clear();
     mesh.boundaries.clear();
     
-    mesh.halfEdges.reserve(nHE);
-    mesh.vertices.reserve(nV);
-    mesh.edges.reserve(nE);
-    mesh.faces.reserve(nF + nB);
+    // assigning extra space for edge split operation in remeshing
+    mesh.halfEdges.reserve(3*nHE);
+    mesh.vertices.reserve(3*nV);
+    mesh.edges.reserve(3*nE);
+    mesh.faces.reserve(3*(nF + nB));
 }
 
 void MeshIO::indexElements(Mesh& mesh)
@@ -106,6 +107,12 @@ void MeshIO::indexElements(Mesh& mesh)
     index = 0;
     for (EdgeIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         e->index = index;
+        index ++;
+    }
+    
+    index = 0;
+    for (HalfEdgeIter he = mesh.halfEdges.begin(); he != mesh.halfEdges.end(); he++) {
+        he->index = index;
         index ++;
     }
     
@@ -174,7 +181,7 @@ bool MeshIO::buildMesh(const MeshData& data, Mesh& mesh)
         vertex->he = isolated.begin();
         indexToVertex[i] = vertex;
     }
- 
+    
     // insert faces into mesh
     int faceIndex = 0;
     bool degenerateFaces = false;

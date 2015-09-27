@@ -16,15 +16,20 @@ struct NodeEntry {
     int startId, endId;
 };
 
-void Bvh::build(Mesh *meshPtr0)
+void Bvh::build(const Mesh& mesh)
 {
-    meshPtr = meshPtr0;
     nodeCount = 0;
     leafCount = 0;
     flatTree.clear();
     
+    for (FaceCIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
+        if (!f->isBoundary()) {
+            faces.push_back(*f);
+        }
+    }
+    
     std::stack<NodeEntry> stack;
-    const int faceCount = (int)meshPtr->faces.size();
+    const int faceCount = (int)faces.size();
     
     NodeEntry nodeEntry;
     nodeEntry.parentId = -1;
@@ -33,7 +38,6 @@ void Bvh::build(Mesh *meshPtr0)
     stack.push(nodeEntry);
     
     Node node;
-    Face *f;
     std::vector<Node> nodes;
     nodes.reserve(faceCount * 2);
     
@@ -43,23 +47,21 @@ void Bvh::build(Mesh *meshPtr0)
         stack.pop();
         int startId = nodeEntry.startId;
         int endId = nodeEntry.endId;
-
+        
         nodeCount ++;
         node.startId = startId;
         node.range = endId - startId;
         node.rightOffset = 2;
         
         // calculate bounding box
-        f = &meshPtr->faces[startId];
-        BoundingBox boundingBox(f->boundingBox(*meshPtr));
-        BoundingBox boundingCentroid(f->centroid(*meshPtr));
+        BoundingBox boundingBox(faces[startId].boundingBox());
+        BoundingBox boundingCentroid(faces[startId].centroid());
         for (int i = startId+1; i < endId; i++) {
-            f = &meshPtr->faces[i];
-            boundingBox.expandToInclude(f->boundingBox(*meshPtr));
-            boundingCentroid.expandToInclude(f->centroid(*meshPtr));
+            boundingBox.expandToInclude(faces[i].boundingBox());
+            boundingCentroid.expandToInclude(faces[i].centroid());
         }
         node.boundingBox = boundingBox;
-
+        
         // if node is a leaf
         if (node.range <= leafSize) {
             node.rightOffset = 0;
@@ -90,9 +92,8 @@ void Bvh::build(Mesh *meshPtr0)
         // partition faces
         int mid = startId;
         for (int i = startId; i < endId; i++) {
-            f = &meshPtr->faces[i];
-            if (f->centroid(*meshPtr)[maxDimension] < splitCoord) {
-                std::swap(meshPtr->faces[i], meshPtr->faces[mid]);
+            if (faces[i].centroid()[maxDimension] < splitCoord) {
+                std::swap(faces[i], faces[mid]);
                 mid ++;
             }
         }
@@ -121,7 +122,7 @@ void Bvh::build(Mesh *meshPtr0)
     }
 }
 
-void Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
+double Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
 {
     double minD = INFINITY;
     
@@ -141,11 +142,12 @@ void Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
         // node is a leaf
         if (node.rightOffset == 0) {
             for (int i = 0; i < node.range; i++) {
-                Eigen::Vector3d closestPoint;
-                double d = meshPtr->faces[node.startId+i].closestPoint(*meshPtr, p, closestPoint);
+                // check for overlap
+                Eigen::Vector3d c;
+                double d = faces[node.startId+i].closestPoint(p, c);
                 if (d < minD) {
                     minD = d;
-                    np = closestPoint;
+                    np = c;
                 }
             }
             
@@ -175,4 +177,6 @@ void Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
             }
         }
     }
+
+    return minD;
 }
