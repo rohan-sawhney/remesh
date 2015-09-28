@@ -39,6 +39,9 @@ private:
     // splits edge and creates a vertex and two new faces
     void splitEdge(EdgeIter& e, const Eigen::Vector3d& position);
     
+    // checks valid flip
+    bool validCollapse(EdgeIter& e);
+    
     // collapses edge and removes adjacent faces
     void collapseEdge(EdgeIter& e);
     

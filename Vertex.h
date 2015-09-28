@@ -29,6 +29,9 @@ public:
     // returns angle weighted vertex normal
     Eigen::Vector3d normal() const;
     
+    // checks if vertices share an edge
+    bool shareEdge(VertexCIter& v) const;
+    
     // flag for deletion
     bool remove;
 };

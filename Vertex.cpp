@@ -60,9 +60,18 @@ Eigen::Vector3d Vertex::normal() const
         Eigen::Vector3d e1 = h->flip->vertex->position - position;
         Eigen::Vector3d e2 = h->flip->next->flip->vertex->position - position;
         
-        angle = acos(e1.dot(e2) / sqrt(e1.dot(e1) * e2.dot(e2)));
+        double c = e1.dot(e2) / sqrt(e1.dot(e1) * e2.dot(e2));
+        if (c < -1.0) c = -1.0;
+        else if (c >  1.0) c = 1.0;
+        angle = acos(c);
+            
         n = h->face->normal();
-        n.normalize();
+        if (n.norm() == 0) {
+            n.setZero();
+            
+        } else {
+            n.normalize();
+        }
         
         normal += angle * n;
         
@@ -72,4 +81,22 @@ Eigen::Vector3d Vertex::normal() const
     
     normal.normalize();
     return normal;
+}
+
+bool Vertex::shareEdge(VertexCIter& v) const
+{
+    HalfEdgeCIter h1 = he;
+    do {
+        HalfEdgeCIter h2 = v->he;
+        do {
+            if (h1 == h2->flip) return true;
+            h2 = h2->flip->next;
+            
+        } while (h2 != v->he);
+        
+        h1 = h1->flip->next;
+        
+    } while (h1 != he);
+    
+    return false;
 }

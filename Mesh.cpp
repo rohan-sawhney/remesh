@@ -1,5 +1,6 @@
 #include "Mesh.h"
 #include "MeshIO.h"
+#include <limits>
 
 Mesh::Mesh()
 {
@@ -226,6 +227,31 @@ void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
     }
 }
 
+bool Mesh::validCollapse(EdgeIter& e)
+{
+    HalfEdgeCIter he = e->he;
+    HalfEdgeCIter flip = he->flip;
+    
+    VertexCIter v1 = he->vertex;
+    VertexCIter v2 = flip->vertex;
+    VertexCIter v3 = he->next->next->vertex;
+    VertexCIter v4 = flip->next->next->vertex;
+    
+    // check for one ring intersection
+    HalfEdgeCIter h = he;
+    do {
+        VertexCIter v = h->flip->vertex;
+        if (v != v2 && v != v3 && v != v4) {
+            if (v->shareEdge(v2)) return false;
+        }
+    
+        h = h->flip->next;
+        
+    } while (h != he);
+    
+    return true;
+}
+
 void Mesh::collapseEdge(EdgeIter& e)
 {
     HalfEdgeIter he = e->he;
@@ -242,38 +268,38 @@ void Mesh::collapseEdge(EdgeIter& e)
     VertexIter v4 = flipNextNext->vertex;
     
     EdgeIter e2 = heNextNext->edge;
-    EdgeIter e3 = flipNextNext->edge;
+    EdgeIter e3 = flipNext->edge;
     
     FaceIter f = he->face;
     FaceIter fFlip = flip->face;
     
     // set halfEdge vertex
-    HalfEdgeIter h = v2->he;
+    HalfEdgeIter h = flip;
     do {
         h->vertex = v1;
         h = h->flip->next;
     
-    } while (h != v2->he);
+    } while (h != flip);
     
     // set vertex halfEdge
     v1->he = heNext;
     v3->he = heNextNext->flip->next;
-    v4->he = flipNextNext->flip->next;
+    v4->he = flipNextNext;
 
     // set next halfEdge
     heNext->next = heNextNext->flip->next;
     heNextNext->flip->next->next->next = heNext;
     
-    flipNext->next = flipNextNext->flip->next;
-    flipNextNext->flip->next->next->next = flipNext;
+    flipNextNext->next = flipNext->flip->next;
+    flipNext->flip->next->next->next = flipNextNext;
     
     // set halfEdge face
     heNext->face = heNextNext->flip->face;
-    flipNext->face = flipNextNext->flip->face;
+    flipNextNext->face = flipNext->flip->face;
     
     // set face halfEdge
     if (heNextNext->flip->face->he == heNextNext->flip) heNextNext->flip->face->he = heNext;
-    if (flipNextNext->flip->face->he == flipNextNext->flip) flipNextNext->flip->face->he = flipNext;
+    if (flipNext->flip->face->he == flipNext->flip) flipNext->flip->face->he = flipNextNext;
     
     // mark for deletion
     v2->remove = true;
@@ -284,8 +310,8 @@ void Mesh::collapseEdge(EdgeIter& e)
     flip->remove = true;
     heNextNext->remove = true;
     heNextNext->flip->remove = true;
-    flipNextNext->remove = true;
-    flipNextNext->flip->remove = true;
+    flipNext->remove = true;
+    flipNext->flip->remove = true;
     f->remove = true;
     fFlip->remove = true;
 }
@@ -360,26 +386,14 @@ bool Mesh::validFlip(EdgeIter& e)
     HalfEdgeCIter he = e->he;
     HalfEdgeCIter flip = he->flip;
     
-    if (he->onBoundary || flip->onBoundary) {
-        return false;
-    }
+    if (he->onBoundary || flip->onBoundary) return false;
     
-    VertexIter v1 = he->next->next->vertex;
-    VertexIter v2 = flip->next->next->vertex;
+    VertexCIter v1 = he->next->next->vertex;
+    VertexCIter v2 = flip->next->next->vertex;
     
     // check if v1 and v2 share an edge
-    HalfEdgeCIter h1 = v1->he;
-    do {
-        HalfEdgeCIter h2 = v2->he;
-        do {
-            if (h1 == h2->flip) return false;
-        
-            h2 = h2->flip->next;
-        } while (h2 != v2->he);
-        
-        h1 = h1->flip->next;
-    } while (h1 != v1->he);
-    
+    if (v1->shareEdge(v2)) return false;
+
     return true;
 }
 
@@ -445,7 +459,8 @@ void Mesh::collapseShortEdges(const double low, const double high)
 {
     for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
         
-        if (!e->remove && e->lengthSquared() < low) {
+        double l = e->lengthSquared();
+        if (!e->remove && l < low && l > std::numeric_limits<double>::epsilon()) {
             
             bool collapse = true;
             VertexCIter v1 = e->he->vertex;
@@ -464,8 +479,7 @@ void Mesh::collapseShortEdges(const double low, const double high)
             
             } while (he != v1->he);
             
-            if (collapse && !e->he->next->next->flip->onBoundary &&
-                            !e->he->flip->next->next->flip->onBoundary) {
+            if (collapse && validCollapse(e)) {
                 collapseEdge(e);
             }
         }
@@ -508,27 +522,29 @@ void Mesh::tangentialRelaxation()
 {
     // compute barycenter of vertex neighborhoods
     std::unordered_map<int, Eigen::Vector3d> q;
+    std::unordered_map<int, Eigen::Vector3d> n;
+    
     for (VertexCIter v = vertices.begin(); v != vertices.end(); v++) {
         
         Eigen::Vector3d barycenter;
         barycenter.setZero();
-        int n = 0;
+        int N = 0;
         HalfEdgeCIter he = v->he;
         do {
             barycenter += he->flip->vertex->position;
-            n ++;
+            N ++;
             he = he->flip->next;
             
         } while (he != v->he);
         
-        q[v->index] = barycenter / (double)n;
+        q[v->index] = barycenter / (double)N;
+        n[v->index] = v->normal();
     }
     
     // move vertices to new position
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
         if (!v->onBoundary()) {
-            Eigen::Vector3d normal = v->normal();
-            v->position = q[v->index] + normal.dot(v->position - q[v->index]) * normal;
+            v->position = q[v->index] + n[v->index].dot(v->position - q[v->index]) * n[v->index];
         }
     }
 }
@@ -582,6 +598,7 @@ void Mesh::remesh(const double edgeLength, const int iterations)
         tangentialRelaxation();
         std::cout << "4" << std::endl;
         //projectToSurface(mesh);
+        std::cout << "5" << std::endl;
     }
 }
 
