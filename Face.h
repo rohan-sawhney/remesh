@@ -24,6 +24,7 @@ public:
     // computes the centroid of the face
     Eigen::Vector3d centroid() const;
     
+    // returns closest point on face to p
     double closestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& c) const;
     
     // id between 0 and |F|-1

@@ -16,20 +16,15 @@ struct NodeEntry {
     int startId, endId;
 };
 
-void Bvh::build(const Mesh& mesh)
+void Bvh::build(Mesh *meshPtr0)
 {
     nodeCount = 0;
     leafCount = 0;
     flatTree.clear();
-    
-    for (FaceCIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
-        if (!f->isBoundary()) {
-            faces.push_back(*f);
-        }
-    }
+    meshPtr = meshPtr0;
     
     std::stack<NodeEntry> stack;
-    const int faceCount = (int)faces.size();
+    const int faceCount = (int)meshPtr->faces.size();
     
     NodeEntry nodeEntry;
     nodeEntry.parentId = -1;
@@ -54,11 +49,11 @@ void Bvh::build(const Mesh& mesh)
         node.rightOffset = 2;
         
         // calculate bounding box
-        BoundingBox boundingBox(faces[startId].boundingBox());
-        BoundingBox boundingCentroid(faces[startId].centroid());
+        BoundingBox boundingBox(meshPtr->faces[startId].boundingBox());
+        BoundingBox boundingCentroid(meshPtr->faces[startId].centroid());
         for (int i = startId+1; i < endId; i++) {
-            boundingBox.expandToInclude(faces[i].boundingBox());
-            boundingCentroid.expandToInclude(faces[i].centroid());
+            boundingBox.expandToInclude(meshPtr->faces[i].boundingBox());
+            boundingCentroid.expandToInclude(meshPtr->faces[i].centroid());
         }
         node.boundingBox = boundingBox;
         
@@ -92,8 +87,8 @@ void Bvh::build(const Mesh& mesh)
         // partition faces
         int mid = startId;
         for (int i = startId; i < endId; i++) {
-            if (faces[i].centroid()[maxDimension] < splitCoord) {
-                std::swap(faces[i], faces[mid]);
+            if (meshPtr->faces[i].centroid()[maxDimension] < splitCoord) {
+                std::swap(meshPtr->faces[i], meshPtr->faces[mid]);
                 mid ++;
             }
         }
@@ -144,7 +139,7 @@ double Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
             for (int i = 0; i < node.range; i++) {
                 // check for overlap
                 Eigen::Vector3d c;
-                double d = faces[node.startId+i].closestPoint(p, c);
+                double d = meshPtr->faces[node.startId+i].closestPoint(p, c);
                 if (d < minD) {
                     minD = d;
                     np = c;

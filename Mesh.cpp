@@ -232,7 +232,6 @@ bool Mesh::validCollapse(EdgeIter& e)
     HalfEdgeCIter he = e->he;
     HalfEdgeCIter flip = he->flip;
     
-    VertexCIter v1 = he->vertex;
     VertexCIter v2 = flip->vertex;
     VertexCIter v3 = he->next->next->vertex;
     VertexCIter v4 = flip->next->next->vertex;
@@ -554,22 +553,8 @@ void Mesh::projectToSurface(const Mesh& mesh)
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
         if (!v->onBoundary()) {
             
-            Eigen::Vector3d nearestPoint = v->position;
-            
-            double minD = INFINITY;
-            for (FaceCIter f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
-                
-                if (!f->isBoundary()) {
-                    Eigen::Vector3d closestPoint;
-                    double d = f->closestPoint(v->position, closestPoint);
-                    if (d < minD) {
-                        minD = d;
-                        nearestPoint = closestPoint;
-                    }
-                }
-            }
-            
-            //bvh.nearestPoint(v->position, nearestPoint);
+            Eigen::Vector3d nearestPoint;
+            bvh.nearestPoint(v->position, nearestPoint);
             v->position = nearestPoint;
         }
     }
@@ -584,21 +569,16 @@ void Mesh::remesh(const double edgeLength, const int iterations)
     double high2 = high*high;
     
     // build bvh
-    //Mesh mesh(*this);
-    //bvh.build(mesh);
+    Mesh mesh(*this);
+    bvh.build(&mesh);
     
     // run algorithm
     for (int i = 0; i < iterations; i++) {
         splitLongEdges(high2);
-        std::cout << "1" << std::endl;
         collapseShortEdges(low2, high2);
-        std::cout << "2" << std::endl;
         equalizeValences();
-        std::cout << "3" << std::endl;
         tangentialRelaxation();
-        std::cout << "4" << std::endl;
         //projectToSurface(mesh);
-        std::cout << "5" << std::endl;
     }
 }
 

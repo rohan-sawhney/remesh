@@ -22,8 +22,8 @@ Eigen::Vector3d Face::normal() const
     Eigen::Vector3d b = he->next->vertex->position;
     Eigen::Vector3d c = he->next->next->vertex->position;
     
-    Eigen::Vector3d v1 = a - b;
-    Eigen::Vector3d v2 = c - b;
+    Eigen::Vector3d v1 = b - a;
+    Eigen::Vector3d v2 = c - a;
     
     return v1.cross(v2);
 }

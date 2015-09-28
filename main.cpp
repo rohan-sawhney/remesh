@@ -20,12 +20,15 @@ double z = -2.5;
 std::string path = "/Users/rohansawhney/Desktop/developer/C++/remesh/bunny.obj";
 
 Mesh mesh;
+bool first = true;
 bool success = true;
+int iterations = 3;
 double avgEdgeLength = 0;
 
 void printInstructions()
 {
-    std::cerr << "' ': remesh\n"
+    std::cerr << "' ': remesh original mesh\n"
+              << "→/←: increase/decrease iterations\n"
               << "↑/↓: move in/out\n"
               << "w/s: move up/down\n"
               << "a/d: move left/right\n"
@@ -86,7 +89,9 @@ void keyboard(unsigned char key, int x0, int y0)
         case 27 :
             exit(0);
         case ' ':
-            mesh.remesh(avgEdgeLength, 10);
+            if (!first) mesh.read(path);
+            if (first) first = false;
+            mesh.remesh(avgEdgeLength, iterations);
             break;
         case 'a':
             x -= 0.03;
@@ -117,7 +122,16 @@ void special(int i, int x0, int y0)
         case GLUT_KEY_DOWN:
             z -= 0.03;
             break;
+        case GLUT_KEY_LEFT:
+            if (iterations > 1) iterations --;
+            break;
+        case GLUT_KEY_RIGHT:
+            iterations ++;
+            break;
     }
+    
+    std::string title = "Remesh, iterations: " + std::to_string(iterations);
+    glutSetWindowTitle(title.c_str());
     
     glutPostRedisplay();
 }
@@ -134,7 +148,8 @@ int main(int argc, char** argv) {
     glutInitWindowSize(gridX, gridY);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInit(&argc, argv);
-    glutCreateWindow("Remesh");
+    std::string title = "Remesh, iterations: " + std::to_string(iterations);
+    glutCreateWindow(title.c_str());
     init();
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
