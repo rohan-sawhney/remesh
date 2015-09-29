@@ -23,7 +23,8 @@ public:
     bool write(const std::string& fileName) const;
 
     // remesh
-    void remesh(const double edgeLength, const double angle, const int iterations);
+    void remesh(const double edgeLength, const double angle,
+                const int iterations, const bool project);
     
     // member variables
     std::vector<HalfEdge> halfEdges;
@@ -72,6 +73,7 @@ private:
     // maps vertex back to surface
     void projectToSurface(const Mesh& mesh);
     
+    BoundingBox boundingBox;
     Bvh bvh;
 };
 

@@ -22,6 +22,7 @@ std::string path = "/Users/rohansawhney/Desktop/developer/C++/remesh/bunny.obj";
 Mesh mesh;
 bool first = true;
 bool success = true;
+bool project = false;
 int iterations = 5;
 double avgEdgeLength = 0;
 
@@ -32,6 +33,7 @@ void printInstructions()
               << "↑/↓: move in/out\n"
               << "w/s: move up/down\n"
               << "a/d: move left/right\n"
+              << "p: toggle projection\n"
               << "r: reload\n"
               << "escape: exit program\n"
               << std::endl;
@@ -92,7 +94,7 @@ void keyboard(unsigned char key, int x0, int y0)
         case ' ':
             if (!first) mesh.read(path);
             if (first) first = false;
-            mesh.remesh(avgEdgeLength, 30.0, iterations);
+            mesh.remesh(avgEdgeLength, 30.0, iterations, project);
             break;
         case 'a':
             x -= 0.03;
@@ -108,6 +110,9 @@ void keyboard(unsigned char key, int x0, int y0)
             break;
         case 'r':
             success = mesh.read(path);
+            break;
+        case 'p':
+            project = !project;
             break;
     }
     

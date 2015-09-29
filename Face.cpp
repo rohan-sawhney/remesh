@@ -30,12 +30,11 @@ Eigen::Vector3d Face::normal() const
 
 BoundingBox Face::boundingBox() const
 {
-    Eigen::Vector3d p1 = he->vertex->position;
-    
     if (isBoundary()) {
-        return BoundingBox(p1, p1);
+        return BoundingBox(he->vertex->position, he->next->vertex->position);
     }
     
+    Eigen::Vector3d p1 = he->vertex->position;
     Eigen::Vector3d p2 = he->next->vertex->position;
     Eigen::Vector3d p3 = he->next->next->vertex->position;
     
@@ -65,13 +64,18 @@ BoundingBox Face::boundingBox() const
 
 Eigen::Vector3d Face::centroid() const
 {
+    Eigen::Vector3d centroid;
+
     if (isBoundary()) {
-        return he->vertex->position;
+        centroid = (he->vertex->position +
+                    he->next->vertex->position) / 2.0;
+        
+    } else {
+        centroid = (he->vertex->position +
+                    he->next->vertex->position +
+                    he->next->next->vertex->position) / 3.0;
     }
-    
-    Eigen::Vector3d centroid = (he->vertex->position +
-                                he->next->vertex->position +
-                                he->next->next->vertex->position) / 3.0;
+
     return centroid;
 }
 

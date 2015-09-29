@@ -16,7 +16,7 @@ struct NodeEntry {
     int startId, endId;
 };
 
-void Bvh::build(Mesh *meshPtr0)
+void Bvh::build(Mesh *meshPtr0, BoundingBox& boundingBox)
 {
     nodeCount = 0;
     leafCount = 0;
@@ -115,9 +115,11 @@ void Bvh::build(Mesh *meshPtr0)
     for (int i = 0; i < nodeCount; i ++) {
         flatTree.push_back(nodes[i]);
     }
+    
+    boundingBox = flatTree[0].boundingBox;
 }
 
-double Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
+double Bvh::nearestPoint(const double dMin, const Eigen::Vector3d& p, Eigen::Vector3d& np) const
 {
     double minD = INFINITY;
     
@@ -133,24 +135,24 @@ double Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
         id = stack.top();
         stack.pop();
         
+        if (minD == 0) return 0;
+        
         const Node &node(flatTree[id]);
         // node is a leaf
         if (node.rightOffset == 0) {
             for (int i = 0; i < node.range; i++) {
-                if (!meshPtr->faces[node.startId+i].isBoundary()) {
-                    // check for overlap
-                    Eigen::Vector3d c;
-                    double d = meshPtr->faces[node.startId+i].closestPoint(p, c);
-                    if (d < minD) {
-                        minD = d;
-                        np = c;
-                    }
+                // check for overlap
+                Eigen::Vector3d c;
+                double d = meshPtr->faces[node.startId+i].closestPoint(p, c);
+                if (d < minD) {
+                    minD = d;
+                    np = c;
                 }
             }
             
         } else { // not a leaf
-            bool hit0 = flatTree[id+1].boundingBox.intersect(p, dist1);
-            bool hit1 = flatTree[id+node.rightOffset].boundingBox.intersect(p, dist2);
+            bool hit0 = flatTree[id+1].boundingBox.intersect(p, dMin, dist1);
+            bool hit1 = flatTree[id+node.rightOffset].boundingBox.intersect(p, dMin, dist2);
             
             // hit both bounding boxes
             if (hit0 && hit1) {

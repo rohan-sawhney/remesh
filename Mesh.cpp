@@ -51,7 +51,7 @@ void Mesh::markFeatures(const double angle)
             // compute dihedral angle
             Eigen::Vector3d n1 = e->he->next->next->vertex->normal();
             Eigen::Vector3d n2 = e->he->flip->next->next->vertex->normal();
-            double d = n1.dot(n2) / sqrt(n1.dot(n1) * n2.dot(n2));
+            double d = n1.dot(n2);
             if (d < -1.0) d = -1.0;
             else if (d >  1.0) d = 1.0;
             
@@ -630,30 +630,35 @@ void Mesh::tangentialRelaxation()
 
 void Mesh::projectToSurface(const Mesh& mesh)
 {
+    double n = boundingBox.extent.norm();
+    Eigen::Vector3d p = Eigen::Vector3d(n,n,n) + (boundingBox.min + boundingBox.max) * 0.5;
+    
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
-        if (!v->onBoundary()) {
-            
+        if (!v->onBoundary() && !v->isFeature()) {
+        
             Eigen::Vector3d nearestPoint;
-            bvh.nearestPoint(v->position, nearestPoint);
-            v->position = nearestPoint;
+            double dMin = (v->position - p).squaredNorm();
+            double d = bvh.nearestPoint(dMin, v->position, nearestPoint);
+            if (d > 0.0) v->position = nearestPoint;
         }
     }
 }
 
-void Mesh::remesh(const double edgeLength, const double angle, const int iterations)
+void Mesh::remesh(const double edgeLength, const double angle,
+                  const int iterations, const bool project)
 {
     // mark features
     markFeatures(angle * M_PI / 180.0);
     
+    // build bvh
+    Mesh original(*this);
+    if (project) bvh.build(&original, boundingBox);
+
     // low and high edge lengths
     const double low  = (4.0 / 5.0) * edgeLength;
     const double high = (4.0 / 3.0) * edgeLength;
     double low2 = low*low;
     double high2 = high*high;
-    
-    // build bvh
-    Mesh mesh(*this);
-    bvh.build(&mesh);
     
     // run algorithm
     for (int i = 0; i < iterations; i++) {
@@ -661,7 +666,7 @@ void Mesh::remesh(const double edgeLength, const double angle, const int iterati
         collapseShortEdges(low2, high2);
         equalizeValences();
         tangentialRelaxation();
-        //projectToSurface(mesh);
+        if (project) projectToSurface(original);
     }
 }
 

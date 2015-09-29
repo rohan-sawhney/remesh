@@ -22,7 +22,7 @@ public:
     int maxDimension() const;
     
     // check if bounding box and face intersect
-    bool intersect(const Eigen::Vector3d& p, double& dist) const;
+    bool intersect(const Eigen::Vector3d& p, const double dMin, double& dist) const;
     
     // member variables
     Eigen::Vector3d min;
