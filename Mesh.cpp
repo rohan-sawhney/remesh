@@ -43,6 +43,25 @@ bool Mesh::write(const std::string& fileName) const
     return false;
 }
 
+void Mesh::markFeatures(const double angle)
+{
+    for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
+        
+        if (!e->he->onBoundary && !e->he->flip->onBoundary) {
+            // compute dihedral angle
+            Eigen::Vector3d n1 = e->he->next->next->vertex->normal();
+            Eigen::Vector3d n2 = e->he->flip->next->next->vertex->normal();
+            double d = n1.dot(n2) / sqrt(n1.dot(n1) * n2.dot(n2));
+            if (d < -1.0) d = -1.0;
+            else if (d >  1.0) d = 1.0;
+            
+            if (std::abs(acos(d)) > angle) {
+                e->feature = true;
+            }
+        }
+    }
+}
+
 void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
 {
     HalfEdgeIter he = e->he;
@@ -61,6 +80,7 @@ void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
     // insert new halfedge
     EdgeIter e1 = edges.insert(edges.end(), Edge());
     e1->index = (int)edges.size()-1;
+    if (e->feature) e1->feature = true;
     
     // insert new halfedge
     HalfEdgeIter he1 = halfEdges.insert(halfEdges.end(), HalfEdge());
@@ -147,10 +167,8 @@ void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
         e1->he = flip1;
         
         // set halfedge face
-        FaceIter newFace = faces.insert(faces.end(), Face());
-        newFace->index = (int)faces.size()-1;
-        he1->face = newFace;
-        newFace->he = he1;
+        he1->face = he->face;
+        he->face->he = he1;
     }
     
     if (!flip->onBoundary) {
@@ -220,21 +238,24 @@ void Mesh::splitEdge(EdgeIter& e, const Eigen::Vector3d& position)
         v2->he = he1->next;
         
         // set halfedge face
-        FaceIter newFace = faces.insert(faces.end(), Face());
-        newFace->index = (int)faces.size()-1;
-        flip1->face = newFace;
-        newFace->he = flip1;
+        flip1->face = flip->face;
+        flip->face->he = flip1;
     }
 }
 
 bool Mesh::validCollapse(EdgeIter& e)
 {
+    if (e->remove || e->feature) return false;
+    
     HalfEdgeCIter he = e->he;
     HalfEdgeCIter flip = he->flip;
     
+    VertexCIter v1 = he->vertex;
     VertexCIter v2 = flip->vertex;
     VertexCIter v3 = he->next->next->vertex;
     VertexCIter v4 = flip->next->next->vertex;
+    
+    if (v1->onBoundary() || v2->onBoundary()) return false;
     
     // check for one ring intersection
     HalfEdgeCIter h = he;
@@ -382,6 +403,8 @@ void Mesh::resetLists()
 
 bool Mesh::validFlip(EdgeIter& e)
 {
+    if (e->feature) return false;
+    
     HalfEdgeCIter he = e->he;
     HalfEdgeCIter flip = he->flip;
     
@@ -440,8 +463,52 @@ void Mesh::flipEdge(EdgeIter& e)
     if (v2->he == flip) v2->he = heNext;
 }
 
+double distToLine(const Eigen::Vector3d& p1, const Eigen::Vector3d& l1,
+                  const Eigen::Vector3d& l2)
+{
+    Eigen::Vector3d v1 = l2 - l1;
+    Eigen::Vector3d v2 = p1 - l1;
+    
+    double c1 = v1.dot(v2);
+    if (c1 <= 0) {
+        return (p1-l1).squaredNorm();
+    }
+    
+    double c2 = v1.dot(v1);
+    if (c2 <= c1) {
+        return (p1-l2).squaredNorm();
+    }
+    
+    double b = c1 / c2;
+    Eigen::Vector3d p = l1 + b * v1;
+    return (p1-p).squaredNorm();
+}
+
+void projectToFeature(VertexCIter v, const Eigen::Vector3d& ref, Eigen::Vector3d& p)
+{
+    double minD = INFINITY;
+    
+    // project point onto closer feature edge
+    HalfEdgeCIter he = v->he;
+    do {
+        if (he->edge->feature) {
+            Eigen::Vector3d b = he->flip->vertex->position;
+            double d = distToLine(ref, b, v->position);
+            
+            if (d < minD) {
+                minD = d;
+                Eigen::Vector3d ab = b - v->position;
+                p = v->position + ab.dot(ref-v->position) / ab.dot(ab) * ab;
+            }
+        }
+        
+        he = he->flip->next;
+        
+    } while (he != v->he);
+}
+
 void Mesh::splitLongEdges(const double high)
-{    
+{
     EdgeIter eEnd = edges.end();
     for (EdgeIter e = edges.begin(); e != eEnd; e++) {
         if (e->lengthSquared() > high) {
@@ -459,7 +526,8 @@ void Mesh::collapseShortEdges(const double low, const double high)
     for (EdgeIter e = edges.begin(); e != edges.end(); e++) {
         
         double l = e->lengthSquared();
-        if (!e->remove && l < low && l > std::numeric_limits<double>::epsilon()) {
+        if (validCollapse(e) &&
+            l < low && l > std::numeric_limits<double>::epsilon()) {
             
             bool collapse = true;
             VertexCIter v1 = e->he->vertex;
@@ -469,7 +537,7 @@ void Mesh::collapseShortEdges(const double low, const double high)
             HalfEdgeCIter he = v1->he;
             do {
                 double d = (v2->position - he->flip->vertex->position).squaredNorm();
-                if (he->onBoundary || d > high) {
+                if (d > high || he->edge->feature) {
                     collapse = false;
                     break;
                 }
@@ -478,7 +546,7 @@ void Mesh::collapseShortEdges(const double low, const double high)
             
             } while (he != v1->he);
             
-            if (collapse && validCollapse(e)) {
+            if (collapse) {
                 collapseEdge(e);
             }
         }
@@ -528,22 +596,34 @@ void Mesh::tangentialRelaxation()
         Eigen::Vector3d barycenter;
         barycenter.setZero();
         int N = 0;
+    
         HalfEdgeCIter he = v->he;
         do {
             barycenter += he->flip->vertex->position;
             N ++;
             he = he->flip->next;
-            
+                
         } while (he != v->he);
-        
+            
         q[v->index] = barycenter / (double)N;
         n[v->index] = v->normal();
+
     }
     
     // move vertices to new position
     for (VertexIter v = vertices.begin(); v != vertices.end(); v++) {
         if (!v->onBoundary()) {
-            v->position = q[v->index] + n[v->index].dot(v->position - q[v->index]) * n[v->index];
+            Eigen::Vector3d p = q[v->index] +
+                                n[v->index].dot(v->position - q[v->index]) * n[v->index];
+            
+            if (v->isFeature()) {
+                Eigen::Vector3d projection;
+                projectToFeature(v, p, projection);
+                v->position = projection;
+            
+            } else {
+                v->position = p;
+            }
         }
     }
 }
@@ -560,8 +640,11 @@ void Mesh::projectToSurface(const Mesh& mesh)
     }
 }
 
-void Mesh::remesh(const double edgeLength, const int iterations)
+void Mesh::remesh(const double edgeLength, const double angle, const int iterations)
 {
+    // mark features
+    markFeatures(angle * M_PI / 180.0);
+    
     // low and high edge lengths
     const double low  = (4.0 / 5.0) * edgeLength;
     const double high = (4.0 / 3.0) * edgeLength;

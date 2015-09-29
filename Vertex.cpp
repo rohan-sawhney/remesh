@@ -1,5 +1,6 @@
 #include "Vertex.h"
 #include "HalfEdge.h"
+#include "Edge.h"
 #include "Face.h"
 
 std::vector<HalfEdge> isolated;
@@ -97,6 +98,19 @@ bool Vertex::shareEdge(VertexCIter& v) const
         h1 = h1->flip->next;
         
     } while (h1 != he);
+    
+    return false;
+}
+
+bool Vertex::isFeature() const
+{
+    HalfEdgeCIter h = he;
+    do {
+        if (h->edge->feature) return true;
+        
+        h = h->flip->next;
+        
+    } while (h != he);
     
     return false;
 }

@@ -15,6 +15,9 @@ public:
     
     // flag for deletion
     bool remove;
+    
+    // feature flag
+    bool feature;
 };
 
 #endif

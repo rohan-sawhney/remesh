@@ -137,12 +137,14 @@ double Bvh::nearestPoint(const Eigen::Vector3d& p, Eigen::Vector3d& np) const
         // node is a leaf
         if (node.rightOffset == 0) {
             for (int i = 0; i < node.range; i++) {
-                // check for overlap
-                Eigen::Vector3d c;
-                double d = meshPtr->faces[node.startId+i].closestPoint(p, c);
-                if (d < minD) {
-                    minD = d;
-                    np = c;
+                if (!meshPtr->faces[node.startId+i].isBoundary()) {
+                    // check for overlap
+                    Eigen::Vector3d c;
+                    double d = meshPtr->faces[node.startId+i].closestPoint(p, c);
+                    if (d < minD) {
+                        minD = d;
+                        np = c;
+                    }
                 }
             }
             

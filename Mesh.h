@@ -21,9 +21,9 @@ public:
     
     // write mesh to file
     bool write(const std::string& fileName) const;
-    
+
     // remesh
-    void remesh(const double edgeLength, const int iterations);
+    void remesh(const double edgeLength, const double angle, const int iterations);
     
     // member variables
     std::vector<HalfEdge> halfEdges;
@@ -35,6 +35,9 @@ public:
 private:
     // center mesh about origin and rescale to unit radius
     void normalize();
+    
+    // detects features
+    void markFeatures(const double angle);
     
     // splits edge and creates a vertex and two new faces
     void splitEdge(EdgeIter& e, const Eigen::Vector3d& position);

@@ -22,7 +22,7 @@ std::string path = "/Users/rohansawhney/Desktop/developer/C++/remesh/bunny.obj";
 Mesh mesh;
 bool first = true;
 bool success = true;
-int iterations = 3;
+int iterations = 5;
 double avgEdgeLength = 0;
 
 void printInstructions()
@@ -45,10 +45,11 @@ void init()
 
 void draw()
 {
-    glColor4f(0.0, 0.0, 1.0, 0.5);
+    glColor4f(0.0, 0.0, 1.0, 0.6);
     
     glBegin(GL_LINES);
     for (EdgeCIter e = mesh.edges.begin(); e != mesh.edges.end(); e ++) {
+       
         Eigen::Vector3d a = e->he->vertex->position;
         Eigen::Vector3d b = e->he->flip->vertex->position;
         
@@ -91,7 +92,7 @@ void keyboard(unsigned char key, int x0, int y0)
         case ' ':
             if (!first) mesh.read(path);
             if (first) first = false;
-            mesh.remesh(avgEdgeLength, iterations);
+            mesh.remesh(avgEdgeLength, 30.0, iterations);
             break;
         case 'a':
             x -= 0.03;

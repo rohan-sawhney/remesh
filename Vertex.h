@@ -32,6 +32,9 @@ public:
     // checks if vertices share an edge
     bool shareEdge(VertexCIter& v) const;
     
+    // checks if vertex is a feature
+    bool isFeature() const;
+
     // flag for deletion
     bool remove;
 };
