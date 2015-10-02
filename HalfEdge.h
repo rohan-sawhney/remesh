@@ -23,7 +23,7 @@ public:
     // checks if this halfedge is contained in boundary loop
     bool onBoundary;
     
-    // id between 0 and |F|-1
+    // id between 0 and |H|-1
     int index;
     
     // flag for deletion
