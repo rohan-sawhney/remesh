@@ -143,7 +143,7 @@ void special(int i, int x0, int y0)
 }
 
 int main(int argc, char** argv) {
-    
+
     success = mesh.read(path);
     for (EdgeCIter e = mesh.edges.begin(); e != mesh.edges.end(); e++) {
         avgEdgeLength += sqrt(e->lengthSquared());
